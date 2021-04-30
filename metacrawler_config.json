@@ -1,0 +1,410 @@
+{
+    "object_continue": true,
+    "source_env_continue": true,
+    "source_env_index": -1,
+    "source_envs": [
+        {
+            "name": "prd",
+            "brand_index": 0,
+            "brands": [
+                {
+                    "name": "informatica",
+                    "instance_index": 0,
+                    "instances": [
+                        {
+                            "name": "REP_SVC_PRD",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_informatica_connection",
+                                "dv_informatica_mapping",
+                                "dv_informatica_scheduler",
+                                "dv_informatica_session",
+                                "dv_informatica_source",
+                                "dv_informatica_target",
+                                "dv_informatica_task",
+                                "dv_informatica_user",
+                                "dv_informatica_widget",
+                                "dv_informatica_workflow",
+                                "dv_informatica_workflow_run",
+                                "dv_informatica_session_instance",
+                                "dv_informatica_session_instance_run_latest",
+                                "dv_informatica_source_instance",
+                                "dv_informatica_target_instance",
+                                "dv_informatica_task_instance",
+                                "dv_informatica_widget_instance",
+                                "dv_informatica_healthcheck_a02_hardcoded_command_path",
+                                "dv_informatica_healthcheck_a03_a05_hardcoded_session_log_path",
+                                "dv_informatica_healthcheck_a06_hardcoded_workflow_log_path",
+                                "dv_informatica_healthcheck_a07_a08_hardcoded_flat_file_path",
+                                "dv_informatica_healthcheck_a10_domain_admin_user",
+                                "dv_informatica_healthcheck_m06_m11_large_version_history",
+                                "dv_informatica_healthcheck_m12_duplicate_connection",
+                                "dv_informatica_healthcheck_m13_duplicate_source",
+                                "dv_informatica_healthcheck_m14_duplicate_target",
+                                "dv_informatica_healthcheck_m15_unused_connection",
+                                "dv_informatica_healthcheck_m16_ldap_vs_native",
+                                "dv_informatica_healthcheck_m19_duplicate_session_log_name",
+                                "dv_informatica_healthcheck_m22_bad_name_shortcut_source",
+                                "dv_informatica_healthcheck_m23_false_shortcut_source",
+                                "dv_informatica_healthcheck_p01_complex_mapping",
+                                "dv_informatica_healthcheck_p03_default_lookup_memory",
+                                "dv_informatica_healthcheck_p06_p07_p08_concurrent_lookup",
+                                "dv_informatica_healthcheck_p09_p10_verbose_session_log",
+                                "dv_informatica_healthcheck_p11_p12_p13_verbose_transformation",
+                                "dv_informatica_healthcheck_p17_concat_function",
+                                "dv_informatica_healthcheck_p18_p19_p20_max_memory_eq_0",
+                                "dv_informatica_healthcheck_s01_folder_name_contains_blank",
+                                "dv_informatica_healthcheck_s02_shared_folder",
+                                "dv_informatica_healthcheck_s03_mapping_without_description",
+                                "dv_informatica_healthcheck_s04_s05_session_without_description",
+                                "dv_informatica_healthcheck_s06_workflow_without_description",
+                                "dv_informatica_healthcheck_s07_folder_without_description",
+                                "dv_informatica_healthcheck_s08_s09_object_without_description",
+                                "dv_informatica_healthcheck_s10_default_object_name",
+                                "dv_informatica_healthcheck_s11_bad_object_prefix"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "oracle",
+                    "instance_index": 0,
+                    "instances": [
+                        {
+                            "name": "EDWPRD1",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_edw_oracle_object",
+                                "dv_edw_oracle_object_dependency"
+                            ]
+                        },
+                        {
+                            "name": "EDMPRD1",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_edm_oracle_object",
+                                "dv_edm_oracle_object_dependency"
+                            ]
+                        }
+                   ]
+                },
+                {
+                    "name": "sql_server",
+                    "instance_index": 0,
+                    "instances": [
+                        {
+                            "name": "USCRLPEDBSODS2\\ODSGPRD1",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_odsg_sql_server_object",
+                                "dv_odsg_sql_server_object_dependency"
+                            ]
+                        },
+                        {
+                            "name": "USCRLPDDBSGDW2\\GDWPRD1",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_gdw_sql_server_object",
+                                "dv_gdw_sql_server_object_dependency"
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "denodo": {
+                "url": "https://denodo.aws.autodesk.com:12000/denodo-restfulws/ldw/views",
+                "job_index": -1,
+                "jobs": []
+            }
+        },
+        {
+            "name": "stg",
+            "brand_index": 0,
+            "brands": [
+                {
+                    "name": "informatica",
+                    "instance_index": 0,
+                    "instances": [
+                        {
+                            "name": "REP_SVC_STG",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_informatica_connection",
+                                "dv_informatica_mapping",
+                                "dv_informatica_scheduler",
+                                "dv_informatica_session",
+                                "dv_informatica_source",
+                                "dv_informatica_target",
+                                "dv_informatica_task",
+                                "dv_informatica_user",
+                                "dv_informatica_widget",
+                                "dv_informatica_workflow",
+                                "dv_informatica_workflow_run",
+                                "dv_informatica_session_instance",
+                                "dv_informatica_session_instance_run_latest",
+                                "dv_informatica_source_instance",
+                                "dv_informatica_target_instance",
+                                "dv_informatica_task_instance",
+                                "dv_informatica_widget_instance",
+                                "dv_informatica_healthcheck_a02_hardcoded_command_path",
+                                "dv_informatica_healthcheck_a03_a05_hardcoded_session_log_path",
+                                "dv_informatica_healthcheck_a06_hardcoded_workflow_log_path",
+                                "dv_informatica_healthcheck_a07_a08_hardcoded_flat_file_path",
+                                "dv_informatica_healthcheck_a10_domain_admin_user",
+                                "dv_informatica_healthcheck_m06_m11_large_version_history",
+                                "dv_informatica_healthcheck_m12_duplicate_connection",
+                                "dv_informatica_healthcheck_m13_duplicate_source",
+                                "dv_informatica_healthcheck_m14_duplicate_target",
+                                "dv_informatica_healthcheck_m15_unused_connection",
+                                "dv_informatica_healthcheck_m16_ldap_vs_native",
+                                "dv_informatica_healthcheck_m19_duplicate_session_log_name",
+                                "dv_informatica_healthcheck_m22_bad_name_shortcut_source",
+                                "dv_informatica_healthcheck_m23_false_shortcut_source",
+                                "dv_informatica_healthcheck_p01_complex_mapping",
+                                "dv_informatica_healthcheck_p03_default_lookup_memory",
+                                "dv_informatica_healthcheck_p06_p07_p08_concurrent_lookup",
+                                "dv_informatica_healthcheck_p09_p10_verbose_session_log",
+                                "dv_informatica_healthcheck_p11_p12_p13_verbose_transformation",
+                                "dv_informatica_healthcheck_p17_concat_function",
+                                "dv_informatica_healthcheck_p18_p19_p20_max_memory_eq_0",
+                                "dv_informatica_healthcheck_s01_folder_name_contains_blank",
+                                "dv_informatica_healthcheck_s02_shared_folder",
+                                "dv_informatica_healthcheck_s03_mapping_without_description",
+                                "dv_informatica_healthcheck_s04_s05_session_without_description",
+                                "dv_informatica_healthcheck_s06_workflow_without_description",
+                                "dv_informatica_healthcheck_s07_folder_without_description",
+                                "dv_informatica_healthcheck_s08_s09_object_without_description",
+                                "dv_informatica_healthcheck_s10_default_object_name",
+                                "dv_informatica_healthcheck_s11_bad_object_prefix"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "oracle",
+                    "instance_index": 0,
+                    "instances": [
+                        {
+                            "name": "EDWSTG1",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_edw_oracle_object",
+                                "dv_edw_oracle_object_dependency"
+                            ]
+                        },
+                        {
+                            "name": "EDMSTG1",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_edm_oracle_object",
+                                "dv_edm_oracle_object_dependency"
+                            ]
+                        }
+                   ]
+                },
+                {
+                    "name": "sql_server",
+                    "instance_index": 0,
+                    "instances": [
+                        {
+                            "name": "USSCLSEDBSODS4\\ODSGSTG3",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_odsg_sql_server_object",
+                                "dv_odsg_sql_server_object_dependency"
+                            ]
+                        },
+                        {
+                            "name": "USSCLSDDBSGDW2\\GDWSTG1",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_gdw_sql_server_object",
+                                "dv_gdw_sql_server_object_dependency"
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "denodo": {
+                "url": "https://denodo-stg.autodesk.com:12000/denodo-restfulws/ldw/views",
+                "job_index": -1,
+                "jobs": []
+            }
+        },
+        {
+            "name": "dev",
+            "brand_index": 0,
+            "brands": [
+                {
+                    "name": "informatica",
+                    "instance_index": 0,
+                    "instances": [
+                        {
+                            "name": "REP_SVC_DEV",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_informatica_connection",
+                                "dv_informatica_mapping",
+                                "dv_informatica_scheduler",
+                                "dv_informatica_session",
+                                "dv_informatica_source",
+                                "dv_informatica_target",
+                                "dv_informatica_task",
+                                "dv_informatica_user",
+                                "dv_informatica_widget",
+                                "dv_informatica_workflow",
+                                "dv_informatica_workflow_run",
+                                "dv_informatica_session_instance",
+                                "dv_informatica_session_instance_run_latest",
+                                "dv_informatica_source_instance",
+                                "dv_informatica_target_instance",
+                                "dv_informatica_task_instance",
+                                "dv_informatica_widget_instance",
+                                "dv_informatica_healthcheck_a02_hardcoded_command_path",
+                                "dv_informatica_healthcheck_a03_a05_hardcoded_session_log_path",
+                                "dv_informatica_healthcheck_a06_hardcoded_workflow_log_path",
+                                "dv_informatica_healthcheck_a07_a08_hardcoded_flat_file_path",
+                                "dv_informatica_healthcheck_a10_domain_admin_user",
+                                "dv_informatica_healthcheck_m06_m11_large_version_history",
+                                "dv_informatica_healthcheck_m12_duplicate_connection",
+                                "dv_informatica_healthcheck_m13_duplicate_source",
+                                "dv_informatica_healthcheck_m14_duplicate_target",
+                                "dv_informatica_healthcheck_m15_unused_connection",
+                                "dv_informatica_healthcheck_m16_ldap_vs_native",
+                                "dv_informatica_healthcheck_m19_duplicate_session_log_name",
+                                "dv_informatica_healthcheck_m22_bad_name_shortcut_source",
+                                "dv_informatica_healthcheck_m23_false_shortcut_source",
+                                "dv_informatica_healthcheck_m27_session_rejected_rows",
+                                "dv_informatica_healthcheck_p01_complex_mapping",
+                                "dv_informatica_healthcheck_p03_default_lookup_memory",
+                                "dv_informatica_healthcheck_p06_p07_p08_concurrent_lookup",
+                                "dv_informatica_healthcheck_p09_p10_verbose_session_log",
+                                "dv_informatica_healthcheck_p11_p12_p13_verbose_transformation",
+                                "dv_informatica_healthcheck_p16_override_sql",
+                                "dv_informatica_healthcheck_p17_concat_function",
+                                "dv_informatica_healthcheck_p18_p19_p20_max_memory_eq_0",
+                                "dv_informatica_healthcheck_s01_folder_name_contains_blank",
+                                "dv_informatica_healthcheck_s02_shared_folder",
+                                "dv_informatica_healthcheck_s03_mapping_without_description",
+                                "dv_informatica_healthcheck_s04_s05_session_without_description",
+                                "dv_informatica_healthcheck_s06_workflow_without_description",
+                                "dv_informatica_healthcheck_s07_folder_without_description",
+                                "dv_informatica_healthcheck_s08_s09_object_without_description",
+                                "dv_informatica_healthcheck_s10_default_object_name",
+                                "dv_informatica_healthcheck_s11_bad_object_prefix"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "oracle",
+                    "instance_index": 0,
+                    "instances": [
+                        {
+                            "name": "EDWDEV2",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_edw_oracle_object",
+                                "dv_edw_oracle_object_dependency"
+                            ]
+                        },
+                        {
+                            "name": "EDMDEV2",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_edm_oracle_object",
+                                "dv_edm_oracle_object_dependency"
+                            ]
+                        }
+                   ]
+                },
+                {
+                    "name": "sql_server",
+                    "instance_index": 0,
+                    "instances": [
+                        {
+                            "name": "USSCLNEDBSEA001\\ODSGDEV2",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_odsg_sql_server_object",
+                                "dv_odsg_sql_server_object_dependency"
+                            ]
+                        },
+                        {
+                            "name": "USSCLNDDBSEA001\\GDWDEV2",
+                            "object_index": -1,
+                            "objects": [
+                                "dv_gdw_sql_server_object",
+                                "dv_gdw_sql_server_object_dependency"
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "denodo": {
+                "url": "https://denodo-dev.autodesk.com:12000/denodo-restfulws/ldw/views",
+                "job_index": -1,
+                "jobs": []
+            }
+        }
+    ],
+    "s3": {
+        "ssl_pem_file": "python_friendly.pem",
+        "storage_class": "REDUCED_REDUNDANCY"
+    },
+    "glue": {
+        "wait_seconds": 600,
+        "crawl": false,
+        "continue": true,
+        "database_name": "metacrawler",
+        "targets": []
+    },
+    "athena": {
+        "wait_seconds": 0,
+        "continue": true,
+        "s3_folder_name": "athena_staging",
+        "load_partition": "MSCK REPAIR TABLE",
+        "tables": []
+    },
+    "denodo": {
+        "project_name": "MetaCrawler",
+        "scheduler_name": "dv_scheduler_job_start",
+        "monitor_name": "dv_scheduler_job_metadata",
+        "monitor_args": "&$select=last_execution_dt,last_result_cd,status_cd&$filter=last_execution_dt%3Eto_date%28%27yyyyMMdd%20HH%3Amm%3Ass%27%2C%2720180701%2000%3A00%3A00%27%29&$format=JSON&$displayRESTfulReferences=false",
+        "format_args": "$format=json&$displayRESTfulReferences=false",
+        "status_cd_running": [
+            "WAITING",
+            "RUNNING",
+            "DISABLED"
+        ],
+        "status_cd_not_running": [
+            "NOT_RUNNING"
+        ],
+        "result_cd_complete": [
+            "COMPLETE"
+        ],
+        "result_cd_not_complete": [
+            "ERROR",
+            "STOPPED", 
+            "WARNING"
+        ],
+        "response_txt_success": "Success",
+        "request_timeout_seconds": 3000,
+        "stale_cache_hours": 24,
+        "username": "svc_d_virtual",
+        "password": "D3n0d0D3v",
+        "job_wait_seconds": 0,
+        "job_status_wait_seconds": 0,
+        "job_start_wait_seconds": 0,
+        "job_continue": true,
+        "job_status_continue": true,
+        "job_start_continue": true,
+        "jobs": []
+    },
+    "date_format": "%Y-%m-%dT%H:%M:%S+%f",
+    "date_default": "1900-01-01T00:00:00+000000",
+    "skip_keys": [
+        "repository_name",
+        "instance_name"
+    ]
+}

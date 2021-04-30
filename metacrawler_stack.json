@@ -1,0 +1,1062 @@
+{
+	"Description": "MetaCrawler Stack",
+	"Resources": {
+		"CloudWatchServiceRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"Policies": [
+					{
+						"PolicyName": "CloudWatchExecutionPolicy",
+						"PolicyDocument": {
+							"Version": "2012-10-17",
+							"Statement": {
+								"Effect": "Allow",
+								"Action": "states:StartExecution",
+								"Resource": [
+									{ "Fn::Sub": "arn:aws:states:${AWS::Region}:${AWS::AccountId}:*" }
+								]
+							}
+						}
+					}
+				],
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"events.amazonaws.com"
+								]
+							},
+							"Action": [
+								"sts:AssumeRole"
+							]
+						}
+					]
+				}
+			}
+		},
+		"StepFunctionServiceRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"Policies": [
+					{
+						"PolicyName": "StepFunctionExecutionPolicy",
+						"PolicyDocument": {
+							"Version": "2012-10-17",
+							"Statement": {
+								"Effect": "Allow",
+								"Action": "lambda:InvokeFunction",
+								"Resource": [
+									"*"
+								]
+							}
+						}
+					}
+				],
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									{ "Fn::Sub": "states.${AWS::Region}.amazonaws.com" }
+								]
+							},
+							"Action": [
+								"sts:AssumeRole"
+							]
+						}
+					]
+				}
+			}
+		},
+		"LambdaServiceRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"ManagedPolicyArns": [
+					"arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole",
+					"arn:aws:iam::aws:policy/AWSLambdaFullAccess",
+					"arn:aws:iam::aws:policy/AmazonS3FullAccess",
+					"arn:aws:iam::aws:policy/AmazonAthenaFullAccess"
+				],
+				"Policies": [
+					{
+						"PolicyName": "GlueAccess",
+						"PolicyDocument": {
+							"Version": "2012-10-17",
+							"Statement": {
+								"Effect": "Allow",
+								"Action": "glue:*",
+								"Resource": [
+									"*"
+								]
+							}
+						}
+					},
+					{
+						"PolicyName": "AthenaAccess",
+						"PolicyDocument": {
+							"Version": "2012-10-17",
+							"Statement": {
+								"Effect": "Allow",
+								"Action": "athena:*",
+								"Resource": [
+									"*"
+								]
+							}
+						}
+					}
+				],
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"lambda.amazonaws.com"
+								]
+							},
+							"Action": [
+								"sts:AssumeRole"
+							]
+						}
+					]
+				}
+			}
+		},
+		"GlueServiceRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"ManagedPolicyArns": [
+					"arn:aws:iam::aws:policy/AmazonS3FullAccess",
+					"arn:aws:iam::aws:policy/AmazonAthenaFullAccess",
+					"arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole",
+					"arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
+				],
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"glue.amazonaws.com"
+								]
+							},
+							"Action": [
+								"sts:AssumeRole"
+							]
+						}
+					]
+				}
+			}
+		},
+		"AthenaAccessRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"ManagedPolicyArns": [
+					"arn:aws:iam::aws:policy/AmazonS3FullAccess",
+					"arn:aws:iam::aws:policy/AmazonAthenaFullAccess"
+				],
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"glue.amazonaws.com"
+								]
+							},
+							"Action": [
+								"sts:AssumeRole"
+							]
+						}
+					]
+				}
+			}
+		},
+		"S3Bucket": {
+			"Type": "AWS::S3::Bucket"
+		},
+		"GlueMetadataCrawler": {
+			"Type": "AWS::Glue::Crawler",
+			"Properties": {
+				"Name": "MetaCrawler_S3_JSON",
+				"Role": { "Fn::GetAtt": [ "GlueServiceRole", "Arn" ] },
+				"Description": "Scan all freshly loaded S3 JSON files and update the Glue catalog.",
+				"SchemaChangePolicy": {
+					"UpdateBehavior": "UPDATE_IN_DATABASE",
+					"DeleteBehavior": "DELETE_FROM_DATABASE"
+				},
+				"DatabaseName": "metacrawler",
+				"TablePrefix": "t_",
+				"Targets": {
+					"S3Targets": [
+						{ "Path": {"Fn::Join": ["", ["s3://", {"Ref": "S3Bucket"}, "/metadata/*"]]} }
+					]
+				}
+			}
+		},
+		"ConfigFileLambda": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+				"Code": {"ZipFile": {
+					"Fn::Join": [
+						"\n", [
+							"import boto3",
+							"import json",
+							"import datetime",
+							"",
+							"def lambda_handler(event, context):",
+							"",
+							"    try:",
+							"        parm = event['parm']",
+							"        s3 = boto3.client('s3')",
+							"",
+							"        # Set dt string once for the entire batch.",
+							"        parm['dt'] = datetime.datetime.now().strftime('%Y%m%d')",
+							"",
+							"        # Read in the target_env file and set target_env.",
+							"        response = s3.get_object(",
+							"            Bucket = parm['s3']['bucket_name'],",
+							"            Key = parm['s3']['target_env_file']",
+							"        )",
+							"        body_json = response['Body'].read().decode('utf-8')",
+							"        body_python = json.loads(body_json)",
+							"        parm['target_env'] = body_python['name']",
+							"        source_envs = body_python['source_envs']",
+							"        print('INFO: Loading target_env', parm['target_env'], 'from source_envs', source_envs)",
+							"",
+							"        # Read in the config file.",
+							"        response = s3.get_object(",
+							"            Bucket = parm['s3']['bucket_name'],",
+							"            Key = parm['s3']['config_file']",
+							"        )",
+							"        body_json = response['Body'].read().decode('utf-8')",
+							"        body_python = json.loads(body_json)",
+							"",
+							"        # Upsert the corresponding dictionaries in $.parm",
+							"        parm['source_envs'] = []",
+							"        for key in body_python:",
+							"            if key == 'source_envs':",
+							"                for source_env in body_python[key]:",
+							"                    if source_env['name'] in source_envs:",
+							"                        parm['source_envs'].append(source_env)",
+							"                        print('DEBUG: Appending source_env', source_env['name'])",
+							"            elif key in parm:",
+							"                print('DEBUG: key =', key, '(update)')",
+							"                parm[key].update(body_python[key])",
+							"            else:",
+							"                print('DEBUG: key =', key, '(insert)')",
+							"                parm[key] = body_python[key]",
+							"",
+							"    except KeyError:",
+							"        print('ERROR: Invalid key. Aborting...')",
+							"        raise",
+							"    except Exception as e:",
+							"        print(e)",
+							"        raise",
+							"",
+							"    return parm"
+							]
+					]
+				}},
+				"Description": "Read MetaCrawler config file and write source details to the step function's input path.",
+				"Handler": "index.lambda_handler",
+				"MemorySize": 128,
+				"Role": { "Fn::GetAtt": [ "LambdaServiceRole" , "Arn" ] },
+				"Runtime": "python3.6",
+				"Timeout": 120
+			}
+		},
+		"SourceIndexesLambda": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+				"Code": {"ZipFile": {
+					"Fn::Join": [
+						"\n", [
+							"import datetime",
+							"",
+							"def lambda_handler(event, context):",
+							"",
+							"    try:",
+							"        parm = event['parm']",
+							"",
+							"        if parm['source_env_continue'] == False:",
+							"            print('INFO: Pass')",
+							"        else:",
+							"            source_env_index = parm['source_env_index'] + 1",
+							"            print('INFO: Incrementing source_env index to', source_env_index)",
+							"",
+							"            if source_env_index > len(parm['source_envs']) - 1:",
+							"                print('INFO: No more sources to load into target_env', parm['target_env'])",
+							"                parm['source_env_continue'] = False",
+							"            else:",
+							"                print('INFO: Setting up to process', parm['source_envs'][source_env_index]['name'])",
+							"                parm['source_envs'][source_env_index]['start_time'] = datetime.datetime.now().strftime(parm['date_format'])",
+							"                parm['object_continue'] = True",
+							"                parm['denodo']['job_continue'] = True",
+							"                parm['denodo']['job_status_continue'] = True",
+							"                parm['denodo']['job_start_continue'] = True",
+							"                parm['glue']['continue'] = True",
+							"                parm['athena']['continue'] = True",
+							"",
+							"                parm['source_env_index'] = source_env_index",
+							"",
+							"    except KeyError:",
+							"        print('ERROR: Invalid key. Aborting...')",
+							"        raise",
+							"    except Exception as e:",
+							"        print(e)",
+							"        raise",
+							"",
+							"    return parm"
+						]
+					]
+				}},
+				"Description": "Increment source_env_index for the next time through the source_env loop.",
+				"Handler": "index.lambda_handler",
+				"MemorySize": 1536,
+				"Role": { "Fn::GetAtt": [ "LambdaServiceRole" , "Arn" ] },
+				"Runtime": "python3.6",
+				"Timeout": 120
+			}
+		},
+		"DenodoIndexesLambda": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+				"Code": {"ZipFile": {
+					"Fn::Join": [
+						"\n", [
+							"import json",
+							"",
+							"def lambda_handler(event, context):",
+							"",
+							"    try:",
+							"        parm = event['parm']",
+							"",
+							"        if parm['source_env_continue'] == False:",
+							"            parm['denodo']['job_continue'] = False",
+							"        else:",
+							"            denodo = parm['source_envs'][parm['source_env_index']]['denodo']",
+							"            denodo['job_index'] += 1",
+							"            print('INFO: Incrementing Denodo job index to', denodo['job_index'])",
+							"",
+							"            if denodo['job_index'] > len(parm['denodo']['jobs']) - 1:",
+							"                print('INFO: No more jobs to run for source_env', parm['source_envs'][parm['source_env_index']]['name'])",
+							"                parm['denodo']['job_continue'] = False",
+							"            else:",
+							"                print('INFO: Setting up to process the next job for source_env', parm['source_envs'][parm['source_env_index']]['name'])",
+							"                parm['denodo']['job_continue'] = True",
+							"                denodo['jobs'].append(json.loads('{\"checks\": [], \"attempts\": []}'))",
+							"",
+							"            parm['source_envs'][parm['source_env_index']]['denodo'].update(denodo)",
+							"",
+							"    except KeyError:",
+							"        print('ERROR: Invalid key. Aborting...')",
+							"        raise",
+							"    except Exception as e:",
+							"        print(e)",
+							"        raise",
+							"",
+							"    return parm"
+						]
+					]
+				}},
+				"Description": "Increment job_index.",
+				"Handler": "index.lambda_handler",
+				"MemorySize": 1536,
+				"Role": { "Fn::GetAtt": [ "LambdaServiceRole" , "Arn" ] },
+				"Runtime": "python3.6",
+				"Timeout": 300
+			}
+		},
+		"DenodoJobStatusLambda": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+				"Code": {"ZipFile": {
+					"Fn::Join": [
+						"\n", [
+							"import boto3",
+							"import json",
+							"import datetime",
+							"from botocore.vendored import requests",
+							"from dateutil.parser import parse",
+							"",
+							"def lambda_handler(event, context):",
+							"",
+							"    try:",
+							"        parm = event['parm']",
+							"",
+							"        if parm['denodo']['job_continue'] == False:",
+							"            parm['denodo']['job_status_continue'] = False",
+							"        else:",
+							"            source_env = parm['source_envs'][parm['source_env_index']]",
+							"            job_index = source_env['denodo']['job_index']",
+							"            job = source_env['denodo']['jobs'][job_index]",
+							"            tmp_pem_file = '/tmp/' + parm['s3']['ssl_pem_file']",
+							"",
+							"            s3 = boto3.resource('s3')",
+							"            s3.Bucket(parm['s3']['bucket_name']).download_file(parm['s3']['ssl_pem_file'], tmp_pem_file)",
+							"",
+							"            if len(job['checks']) > parm['denodo']['jobs'][job_index]['check_limit']:",
+							"                print('INFO: Check limit', parm['denodo']['jobs'][job_index]['check_limit'], 'reached for job', parm['denodo']['jobs'][job_index]['name'])",
+							"                parm['denodo']['job_status_continue'] = False",
+							"            else:",
+							"                check = {",
+							"                    'check_time': datetime.datetime.now().strftime(parm['date_format']),",
+							"                    'status_cd': 'null',",
+							"                    'last_result_cd': 'null',",
+							"                    'last_execution_dt': parm['date_default']",
+							"                }",
+							"",
+							"                print('INFO: Calling', parm['denodo']['project_name'], 'scheduler', parm['denodo']['monitor_name'], 'for status on job', parm['denodo']['jobs'][job_index]['name'])",
+							"                final_url = source_env['denodo']['url'] + '/' + parm['denodo']['monitor_name'] + '?in_project_nm=' + parm['denodo']['project_name'] + '&in_job_nm=' + parm['denodo']['jobs'][job_index]['name'] + parm['denodo']['monitor_args']",
+							"                response = requests.request(",
+							"                    'GET', final_url, verify=tmp_pem_file, auth=(parm['denodo']['username'], parm['denodo']['password'])",
+							"                )",
+							"                data_python = response.json()",
+							"                print('DEBUG: data_python =', data_python)",
+							"                if 'elements' in data_python:",
+							"                    if len(data_python['elements']) > 0:",
+							"                        elements = data_python['elements'][0]",
+							"                        check.update({'status_cd': (elements['status_cd'] or 'null'), 'last_result_cd': (elements['last_result_cd'] or 'null'), 'last_execution_dt': elements['last_execution_dt'] or parm['date_default']})",
+							"",
+							"                job['checks'].append(check)",
+							"                if job['checks'][-1]['status_cd'] in parm['denodo']['status_cd_running']:",
+							"                    parm['denodo']['job_status_wait_seconds'] = parm['denodo']['jobs'][job_index]['wait_seconds']",
+							"                    print('INFO: Job is in progress. Preparing to wait', parm['denodo']['job_status_wait_seconds'], 'seconds before checking again...')",
+							"                else:",
+							"                    parm['denodo']['job_status_wait_seconds'] = 0",
+							"                    print('INFO: Job status_cd =', job['checks'][-1]['status_cd'])",
+							"",
+							"                source_env['denodo']['jobs'][job_index] = job",
+							"                parm['source_envs'][parm['source_env_index']]['denodo'].update(source_env['denodo'])",
+							"",
+							"    except KeyError:",
+							"        print('ERROR: Invalid key. Aborting...')",
+							"        raise",
+							"    except Exception as e:",
+							"        print(e)",
+							"        raise",
+							"",
+							"    return parm"
+						]
+					]
+				}},
+				"Description": "Query the status of a Denodo job.",
+				"Handler": "index.lambda_handler",
+				"MemorySize": 1536,
+				"Role": { "Fn::GetAtt": [ "LambdaServiceRole" , "Arn" ] },
+				"Runtime": "python3.6",
+				"Timeout": 300
+			}
+		},
+		"DenodoJobStartLambda": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+				"Code": {"ZipFile": {
+					"Fn::Join": [
+						"\n", [
+							"import boto3",
+							"import json",
+							"import datetime",
+							"from botocore.vendored import requests",
+							"from dateutil.parser import parse",
+							"",
+							"def lambda_handler(event, context):",
+							"",
+							"    try:",
+							"        parm = event['parm']",
+							"",
+							"        if parm['denodo']['job_status_continue'] == False:",
+							"            parm['denodo']['job_start_continue'] = False",
+							"        else:",
+							"            source_env = parm['source_envs'][parm['source_env_index']]",
+							"            job_index = source_env['denodo']['job_index']",
+							"            job = source_env['denodo']['jobs'][job_index]",
+							"            job_name = parm['denodo']['jobs'][job_index]['name']",
+							"            source_env_start_time = datetime.datetime.strptime(source_env['start_time'], parm['date_format'])",
+							"            last_execution_dt = datetime.datetime.strptime(job['checks'][-1]['last_execution_dt'], parm['date_format'])",
+							"            cache_age = source_env_start_time - (last_execution_dt or (source_env_start_time - timedelta(days=int(parm['denodo']['stale_cache_hours'])/24/2)))",
+							"            print('DEBUG: cache_age =', cache_age)",
+							"            status_cd = job['checks'][-1]['status_cd']",
+							"            print('DEBUG: status_cd =', status_cd)",
+							"",
+							"            if status_cd in parm['denodo']['status_cd_running']:",
+							"                parm['denodo']['job_start_continue'] = False",
+							"            elif (cache_age.days * 86400) + cache_age.seconds > parm['denodo']['stale_cache_hours'] * 3600:",
+							"                print('INFO: Rebuilding stale cache for', job_name)",
+							"            elif status_cd in parm['denodo']['status_cd_not_running'] and job['checks'][-1]['last_result_cd'] in parm['denodo']['result_cd_complete']:",
+							"                parm['denodo']['job_status_continue'] = False",
+							"                parm['denodo']['job_start_continue'] = False",
+							"            elif len(job['attempts']) > parm['denodo']['jobs'][job_index]['attempt_limit']:",
+							"                parm['denodo']['job_start_continue'] = False",
+							"",
+							"        if parm['denodo']['job_start_continue'] == True:",
+							"            tmp_pem_file = '/tmp/' + parm['s3']['ssl_pem_file']",
+							"",
+							"            s3 = boto3.resource('s3')",
+							"            s3.Bucket(parm['s3']['bucket_name']).download_file(parm['s3']['ssl_pem_file'], tmp_pem_file)",
+							"",
+							"            print('INFO: Calling', parm['denodo']['project_name'], 'scheduler', parm['denodo']['scheduler_name'], 'to start job', job_name, '...')",
+							"            start_time = datetime.datetime.now().strftime(parm['date_format'])",
+							"            final_url = source_env['denodo']['url'] + '/' + parm['denodo']['scheduler_name'] + '?in_param_project_nm=' + parm['denodo']['project_name'] + '&in_param_job_nm=' + job_name + '&' + parm['denodo']['format_args']",
+							"            response = requests.request(",
+							"                'GET', final_url, verify=tmp_pem_file, auth=(parm['denodo']['username'], parm['denodo']['password'])",
+							"            )",
+							"            data_python = response.json()",
+							"            print('DEBUG: data_python =', data_python)",
+							"            if 'elements' in data_python:",
+							"                if len(data_python['elements']) > 0:",
+							"                    response_txt = data_python['elements'][-1]['response_txt']",
+							"                    attempt = {'start_time': start_time, 'response_txt': response_txt}",
+							"                    job['attempts'].append(attempt)",
+							"",
+							"            if response_txt == parm['denodo']['response_txt_success']:",
+							"                print('INFO: Job', job_name, 'started successfully.')",
+							"                parm['denodo']['job_start_continue'] = False",
+							"",
+							"            source_env['denodo']['jobs'][job_index] = job",
+							"            parm['source_envs'][parm['source_env_index']]['denodo'].update(source_env['denodo'])",
+							"",
+							"    except KeyError:",
+							"        print('ERROR: Invalid key. Aborting...')",
+							"        raise",
+							"    except Exception as e:",
+							"        print(e)",
+							"        raise",
+							"",
+							"    return parm"
+						]
+					]
+				}},
+				"Description": "Query the status of a running Denodo job.",
+				"Handler": "index.lambda_handler",
+				"MemorySize": 1536,
+				"Role": { "Fn::GetAtt": [ "LambdaServiceRole" , "Arn" ] },
+				"Runtime": "python3.6",
+				"Timeout": 300
+			}
+		},
+		"CommonIndexesLambda": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+				"Code": {"ZipFile": {
+					"Fn::Join": [
+						"\n", [
+							"def lambda_handler(event, context):",
+							"",
+							"    try:",
+							"        parm = event['parm']",
+							"",
+							"        # Prepare list indexes for crawling the object hierarchy.",
+							"        if parm['source_env_continue'] == False:",
+							"            parm['object_continue'] = False",
+							"        else:",
+							"            source_env = parm['source_envs'][parm['source_env_index']]",
+							"            brand_index = source_env['brand_index']",
+							"            instance_index = source_env['brands'][brand_index]['instance_index']",
+							"            object_index = source_env['brands'][brand_index]['instances'][instance_index]['object_index'] + 1",
+							"",
+							"            if object_index > len(source_env['brands'][brand_index]['instances'][instance_index]['objects']) - 1:",
+							"                print('INFO: No more objects for this instance')",
+							"                source_env['object_index'] = 0",
+							"                instance_index += 1",
+							"                if instance_index > len(source_env['brands'][brand_index]['instances']) - 1:",
+							"                    print('INFO: No more instances for this brand.')",
+							"                    instance_index = 0",
+							"                    brand_index += 1",
+							"                    if brand_index > len(source_env['brands']) - 1:",
+							"                        print('INFO: No more brands for source_env', source_env['name'])",
+							"                        brand_index = 0",
+							"                        parm['object_continue'] = False",
+							"                    else:",
+							"                        print('INFO: Incrementing brand_index to', brand_index, '(', source_env['brands'][brand_index]['name'], ')')",
+							"                        source_env['brand_index'] = brand_index",
+							"                else:",
+							"                    print('INFO: Incrementing instance_index to', instance_index, '(', source_env['brands'][brand_index]['instances'][instance_index]['name'])",
+							"                    source_env['brands'][brand_index]['instance_index'] = instance_index",
+							"            else:",
+							"                print('INFO: Incrementing object_index to', object_index, '(', source_env['brands'][brand_index]['instances'][instance_index]['objects'][object_index], ')')",
+							"                source_env['brands'][brand_index]['instances'][instance_index]['object_index'] = object_index",
+							"",
+							"            parm['source_envs'][parm['source_env_index']].update(source_env)",
+							"",
+							"    except KeyError:",
+							"        print('ERROR: Invalid key. Aborting...')",
+							"        raise",
+							"    except Exception as e:",
+							"        print(e)",
+							"        raise",
+							"",
+							"    return parm"
+						]
+					]
+				}},
+				"Description": "Increment list indexes for the next time through the object loop.",
+				"Handler": "index.lambda_handler",
+				"MemorySize": 1536,
+				"Role": { "Fn::GetAtt": [ "LambdaServiceRole" , "Arn" ] },
+				"Runtime": "python3.6",
+				"Timeout": 120
+			}
+		},
+		"DenodoS3Lambda": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+				"Code": {"ZipFile": {
+					"Fn::Join": [
+						"\n", [
+							"import boto3",
+							"import json",
+							"from botocore.vendored import requests",
+							"from dateutil.parser import parse",
+							"",
+							"def lambda_handler(event, context):",
+							"",
+							"    try:",
+							"        parm = event['parm']",
+							"        source_env = parm['source_envs'][parm['source_env_index']]",
+							"",
+							"        if parm['object_continue'] == False:",
+							"            print('INFO: No more objects to load for source_env', source_env['name'])",
+							"        else:",
+							"            brand_index = source_env['brand_index']",
+							"            instance_index = source_env['brands'][brand_index]['instance_index']",
+							"            object_index = source_env['brands'][brand_index]['instances'][instance_index]['object_index']",
+							"            dt = parm['dt']",
+							"            tmp_pem_file = '/tmp/' + parm['s3']['ssl_pem_file']",
+							"",
+							"            # Based on the above indexes, grab the dict values from the object hierarchy.",
+							"            brand_name = source_env['brands'][brand_index]['name']",
+							"            instance_name = source_env['brands'][brand_index]['instances'][instance_index]['name']",
+							"            object_name = source_env['brands'][brand_index]['instances'][instance_index]['objects'][object_index]",
+							"",
+							"            s3 = boto3.resource('s3')",
+							"            s3.Bucket(parm['s3']['bucket_name']).download_file(parm['s3']['ssl_pem_file'], tmp_pem_file)",
+							"",
+							"            print('INFO: Querying Denodo view', object_name)",
+							"            response = requests.request(",
+							"               'GET',",
+							"               source_env['denodo']['url'] + '/' + object_name + '?' + parm['denodo']['format_args'],",
+							"               verify=tmp_pem_file,",
+							"               auth=(parm['denodo']['username'], parm['denodo']['password']),",
+							"               timeout=parm['denodo']['request_timeout_seconds']",
+							"            )",
+							"",
+							"            # Temporarily decode JSON to Python dict so that we can extract just the 'elements'",
+							"            data_python = response.json()",
+							"",
+							"            if 'elements' in data_python:",
+							"                for key in parm['skip_keys']:",
+							"                    if key in data_python['elements'][-1]:",
+							"                        instance_name = data_python['elements'][-1][key]",
+							"",
+							"                # Keep only the 'elements' payload, remove instance_name column, and convert back to JSON.",
+							"                data_json = ''",
+							"                data_rows = 0",
+							"                for dict_old in data_python['elements']:",
+							"                    dict_new = {}",
+							"                    for key, value in dict_old.items():",
+							"                        if key not in parm['skip_keys']:",
+							"                            if key.endswith('_key') and value is not None:",
+							"                                dict_new[key] = dt + '|' + source_env['name'] + '|' + value",
+							"                            else:",
+							"                                dict_new[key] = value",
+							"",
+							"                    data_json = data_json + json.dumps(dict_new) + \"\\n\"",
+							"                    data_rows += 1",
+							"",
+							"                path = 'metadata/' + brand_name + '/' + object_name[object_name.find(brand_name):]",
+							"                print('DEBUG: Writing {:d} records containing {:d} characters to {}.'.format(data_rows, len(data_json), path))",
+							"                s3 = boto3.client('s3')",
+							"                put_object_status = s3.put_object(Bucket=parm['s3']['bucket_name'], Key=path + '/source_env=' + source_env['name'] + '/instance_name=' + instance_name + '/dt=' + dt + '/' + object_name + '.json', ContentType='application/json', Body=bytes(data_json, 'utf-8'), StorageClass=parm['s3']['storage_class'])",
+							"                target_new = {'Path': 's3://' + parm['s3']['bucket_name'] + '/' + path}",
+							"                target_bool = False",
+							"                for target_old in parm['glue']['targets']:",
+							"                    if target_old == target_new:",
+							"                        target_bool = True",
+							"                        break",
+							"                if target_bool == False:",
+							"                    parm['glue']['targets'].append(target_new)",
+							"            else:",
+							"                print('DEBUG: data_python =', data_python)",
+							"",
+							"    except KeyError:",
+							"        print('ERROR: Invalid key. Aborting...')",
+							"        raise",
+							"    except Exception as e:",
+							"        print(e)",
+							"        raise",
+							"",
+							"    return parm"
+						]
+					]
+				}},
+				"Description": "Read metadata from Denodo view and write it to S3 JSON file.",
+				"Handler": "index.lambda_handler",
+				"MemorySize": 1536,
+				"Role": { "Fn::GetAtt": [ "LambdaServiceRole" , "Arn" ] },
+				"Runtime": "python3.6",
+				"Timeout": 300
+			}
+		},
+		"GlueLambda": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+				"Code": {"ZipFile": {
+					"Fn::Join": [
+						"\n", [
+							"import boto3",
+							"import json",
+							"",
+							"def lambda_handler(event, context):",
+							"",
+							"    try:",
+							"        parm = event['parm']",
+							"",
+							"        glue = boto3.client('glue')",
+							"        response = glue.get_crawlers()",
+							"",
+							"        crawler_name = parm['glue']['crawler_name']",
+							"        response = glue.get_crawler(Name=crawler_name)",
+							"        print(\"DEBUG: response['Crawler']['State'] = \", response['Crawler']['State'])",
+							"",
+							"        if parm['glue']['crawl'] == True and response['Crawler']['State'] == 'READY':",
+							"            targets = {'S3Targets': parm['glue']['targets']}",
+							"            response = glue.update_crawler(Name=crawler_name, Targets=targets)",
+							"            print(\"INFO: Starting crawler\", crawler_name)",
+							"            response = glue.start_crawler(Name=crawler_name)",
+							"",
+							"        response = glue.get_tables(DatabaseName=parm['glue']['database_name'], Expression='t_*')",
+							"        for table in response['TableList']:",
+							"            parm['athena']['tables'].append(table['Name'])",
+							"",
+							"    except KeyError:",
+							"        print('ERROR: Invalid key. Aborting...')",
+							"        raise",
+							"    except Exception as e:",
+							"        print(e)",
+							"        raise",
+							"",
+							"    return parm"
+						]
+					]
+				}},
+				"Description": "Run the Glue Crawler on MetaCrawler's S3 JSON objects and update the Glue Catalog.",
+				"Handler": "index.lambda_handler",
+				"MemorySize": 128,
+				"Role": { "Fn::GetAtt": [ "LambdaServiceRole" , "Arn" ] },
+				"Runtime": "python3.6",
+				"Timeout": 300
+			}
+		},
+		"AthenaLambda": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+				"Code": {"ZipFile": {
+					"Fn::Join": [
+						"\n", [
+							"import boto3",
+							"",
+							"def lambda_handler(event, context):",
+							"",
+							"    try:",
+							"        parm = event['parm']",
+							"",
+							"        if parm['athena']['continue'] == False:",
+							"            print('INFO: Pass')",
+							"        else:",
+							"            if len(parm['athena']['tables']) == 0:",
+							"                print('INFO: No more tables to process.')",
+							"                parm['athena']['continue'] = False",
+							"            else:",
+							"                database_name = parm['glue']['database_name']",
+							"                table_name = parm['athena']['tables'].pop()",
+							"                query_string = parm['athena']['load_partition'] + ' ' + database_name + '.' + table_name",
+							"                client_request_token = database_name + '_' + parm['dt'] + '_' + table_name",
+							"                print(\"INFO: query_string =\", query_string)",
+							"                output_location = 's3://' + parm['s3']['bucket_name'] + '/' + parm['athena']['s3_folder_name']",
+							"",
+							"                athena = boto3.client('athena')",
+							"                response = athena.start_query_execution(QueryString=query_string, ClientRequestToken=client_request_token, QueryExecutionContext={'Database': database_name}, ResultConfiguration={'OutputLocation': output_location})",
+							"                #print(\"DEBUG: response =\", response)",
+							"",
+							"    except KeyError:",
+							"        print('ERROR: Invalid key. Aborting...')",
+							"        raise",
+							"    except Exception as e:",
+							"        print(e)",
+							"",
+							"    return parm"
+						]
+					]
+				}},
+				"Description": "After the crawler has updated the Glue Catalog, we need to load the new partitions into Athena.",
+				"Handler": "index.lambda_handler",
+				"MemorySize": 128,
+				"Role": { "Fn::GetAtt": [ "LambdaServiceRole" , "Arn" ] },
+				"Runtime": "python3.6",
+				"Timeout": 300
+			}
+		},
+		"MetaCrawlerStateMachine": {
+			"Type": "AWS::StepFunctions::StateMachine",
+			"Properties": {
+				"DefinitionString": {
+					"Fn::Join": [
+						"\n",
+						[
+							"{",
+							"  \"Comment\": \"This step function state machine controls MetaCrawler's workflow.\",",
+							"  \"StartAt\": \"Initialize\",",
+							"  \"States\": {",
+							"    \"Initialize\": {",
+							"      \"Comment\": \"Initialize input string (aka event['parm'] in Lambda, '$.parm' in Step Function).\",",
+							"      \"Type\": \"Pass\",",
+							"      \"Result\": {",
+							"        \"s3\": {",
+							"          \"target_env_file\": \"target_env.json\",",
+							"          \"config_file\": \"metacrawler_config.json\",",
+							{ "Fn::Join": ["", ["          \"bucket_name\": \"", { "Ref": "S3Bucket" }, "\""]] },
+							"        },",
+							"        \"glue\": {",
+							{ "Fn::Join": ["", ["          \"service_role\": \"", { "Fn::GetAtt": [ "LambdaServiceRole" , "Arn" ] }, "\","]] },
+							{ "Fn::Join": ["", ["          \"crawler_name\": \"", { "Ref": "GlueMetadataCrawler" }, "\""]] },
+							"        }",
+							"      },",
+							"      \"ResultPath\": \"$.parm\",",
+							"      \"Next\": \"ConfigFileLambda\"",
+							"    },",
+							"    \"ConfigFileLambda\": {",
+							"      \"Comment\": \"Load the config file into memory.\",",
+							"      \"Type\": \"Task\",",
+							{ "Fn::Join": ["", ["      \"Resource\": \"", { "Fn::GetAtt": ["ConfigFileLambda", "Arn"] }, "\","]] },
+							"      \"ResultPath\": \"$.parm\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"SourceIndexesLambda\"",
+							"    },",
+							"    \"SourceIndexesLambda\": {",
+							"      \"Comment\": \"Assign index value for $.parm.source_env_index.\",",
+							"      \"Type\": \"Task\",",
+							{ "Fn::Join": ["", ["      \"Resource\": \"", { "Fn::GetAtt": ["SourceIndexesLambda", "Arn"] }, "\","]] },
+							"      \"ResultPath\": \"$.parm\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"DenodoIndexesLambda\"",
+							"    },",
+							"    \"DenodoIndexesLambda\": {",
+							"      \"Comment\": \"Assign Denodo index values.\",",
+							"      \"Type\": \"Task\",",
+							{ "Fn::Join": ["", ["      \"Resource\": \"", { "Fn::GetAtt": ["DenodoIndexesLambda", "Arn"] }, "\","]] },
+							"      \"ResultPath\": \"$.parm\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"DenodoJobStatusLambda\"",
+							"    },",
+							"    \"DenodoJobStatusLambda\": {",
+							"      \"Comment\": \"Check the status of a Denodo job.\",",
+							"      \"Type\": \"Task\",",
+							{ "Fn::Join": ["", ["      \"Resource\": \"", { "Fn::GetAtt": ["DenodoJobStatusLambda", "Arn"] }, "\","]] },
+							"      \"ResultPath\": \"$.parm\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"DenodoJobStartLambda\"",
+							"    },",
+							"    \"DenodoJobStartLambda\": {",
+							"      \"Comment\": \"Attempt to start a job.\",",
+							"      \"Type\": \"Task\",",
+							{ "Fn::Join": ["", ["      \"Resource\": \"", { "Fn::GetAtt": ["DenodoJobStartLambda", "Arn"] }, "\","]] },
+							"      \"ResultPath\": \"$.parm\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"DenodoJobStartChoice\"",
+							"    },",
+							"    \"DenodoJobStartChoice\": {",
+							"      \"Comment\": \"Test Boolean property $.parm.denodo.job_start_continue.\",",
+							"      \"Type\": \"Choice\",",
+							"      \"Choices\": [",
+							"        {",
+							"          \"Variable\": \"$.parm.denodo.job_start_continue\",",
+							"          \"BooleanEquals\": true,",
+							"          \"Next\": \"DenodoJobStartContinue\"",
+							"        }",
+							"      ],",
+							"      \"Default\": \"DenodoJobStatusChoice\"",
+							"    },",
+							"    \"DenodoJobStartContinue\": {",
+							"      \"Comment\": \"Wait for $.parm.denodo.job_start_wait_seconds before attempting to start again.\",",
+							"      \"Type\": \"Wait\",",
+							"      \"SecondsPath\": \"$.parm.denodo.job_start_wait_seconds\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"DenodoJobStartLambda\"",
+							"    },",
+							"    \"DenodoJobStatusChoice\": {",
+							"      \"Comment\": \"Test Boolean property $.parm.denodo.job_status_continue.\",",
+							"      \"Type\": \"Choice\",",
+							"      \"Choices\": [",
+							"        {",
+							"          \"Variable\": \"$.parm.denodo.job_status_continue\",",
+							"          \"BooleanEquals\": true,",
+							"          \"Next\": \"DenodoJobStatusContinue\"",
+							"        }",
+							"      ],",
+							"      \"Default\": \"DenodoJobChoice\"",
+							"    },",
+							"    \"DenodoJobStatusContinue\": {",
+							"      \"Comment\": \"Wait for $.parm.denodo.job_status_wait_seconds before checking status again.\",",
+							"      \"Type\": \"Wait\",",
+							"      \"SecondsPath\": \"$.parm.denodo.job_status_wait_seconds\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"DenodoJobStatusLambda\"",
+							"    },",
+							"    \"DenodoJobChoice\": {",
+							"      \"Comment\": \"Test Boolean property $.parm.denodo.job_continue.\",",
+							"      \"Type\": \"Choice\",",
+							"      \"Choices\": [",
+							"        {",
+							"          \"Variable\": \"$.parm.denodo.job_continue\",",
+							"          \"BooleanEquals\": true,",
+							"          \"Next\": \"DenodoJobContinue\"",
+							"        }",
+							"      ],",
+							"      \"Default\": \"CommonIndexesLambda\"",
+							"    },",
+							"    \"DenodoJobContinue\": {",
+							"      \"Comment\": \"Wait for $.parm.denodo.job_wait_seconds before advancing to the next job.\",",
+							"      \"Type\": \"Wait\",",
+							"      \"SecondsPath\": \"$.parm.denodo.job_wait_seconds\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"DenodoIndexesLambda\"",
+							"    },",
+							"    \"CommonIndexesLambda\": {",
+							"      \"Comment\": \"Update the index values used for brand, instance, and object.\",",
+							"      \"Type\": \"Task\",",
+							{ "Fn::Join": ["", ["      \"Resource\": \"", { "Fn::GetAtt": ["CommonIndexesLambda", "Arn"] }, "\","]] },
+							"      \"ResultPath\": \"$.parm\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"DenodoS3Lambda\"",
+							"    },",
+							"    \"DenodoS3Lambda\": {",
+							"      \"Comment\": \"Retrieve object metadata from Denodo and save it as a JSON file in S3.\",",
+							"      \"Type\": \"Task\",",
+							{ "Fn::Join": ["", ["      \"Resource\": \"", { "Fn::GetAtt": ["DenodoS3Lambda", "Arn"]}, "\","]] },
+							"      \"ResultPath\": \"$.parm\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"DenodoS3Choice\"",
+							"    },",
+							"    \"DenodoS3Choice\": {",
+							"      \"Comment\": \"Test Boolean property $.parm.object_continue to decide whether there are still more objects to load.\",",
+							"      \"Type\": \"Choice\",",
+							"      \"Choices\": [",
+							"        {",
+							"          \"Variable\": \"$.parm.object_continue\",",
+							"          \"BooleanEquals\": true,",
+							"          \"Next\": \"DenodoS3Continue\"",
+							"        }",
+							"      ],",
+							"      \"Default\": \"SourceEnvChoice\"",
+							"    },",
+							"    \"DenodoS3Continue\": {",
+							"      \"Comment\": \"DenodoS3Choice determined that we need to loop through CommonIndexesLambda again.\",",
+							"      \"Type\": \"Pass\",",
+							"      \"Result\": {",
+							"        \"success\": true",
+							"      },",
+							"      \"ResultPath\": \"$.result\",",
+							"      \"Next\": \"CommonIndexesLambda\"",
+							"    },",
+							"    \"SourceEnvChoice\": {",
+							"      \"Comment\": \"Test Boolean property $.parm.source_env_continue to decide whether there are still more sources to load.\",",
+							"      \"Type\": \"Choice\",",
+							"      \"Choices\": [",
+							"        {",
+							"          \"Variable\": \"$.parm.source_env_continue\",",
+							"          \"BooleanEquals\": true,",
+							"          \"Next\": \"SourceEnvContinue\"",
+							"        }",
+							"      ],",
+							"      \"Default\": \"GlueLambda\"",
+							"    },",
+							"    \"SourceEnvContinue\": {",
+							"      \"Comment\": \"SourceEnvChoice determined that we need to loop through SourceIndexesLambda again.\",",
+							"      \"Type\": \"Pass\",",
+							"      \"Result\": {",
+							"        \"success\": true",
+							"      },",
+							"      \"ResultPath\": \"$.result\",",
+							"      \"Next\": \"SourceIndexesLambda\"",
+							"    },",
+							"    \"GlueLambda\": {",
+							"      \"Comment\": \"Update the Glue Catalog.\",",
+							"      \"Type\": \"Task\",",
+							{ "Fn::Join": ["", ["      \"Resource\": \"", { "Fn::GetAtt": ["GlueLambda", "Arn"] }, "\","]] },
+							"      \"ResultPath\": \"$.parm\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"GlueContinue\"",
+							"    },",
+							"    \"GlueContinue\": {",
+							"      \"Comment\": \"Wait for $.parm.glue.wait_seconds before checking status again.\",",
+							"      \"Type\": \"Wait\",",
+							"      \"SecondsPath\": \"$.parm.glue.wait_seconds\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"AthenaLambda\"",
+							"    },",
+							"    \"AthenaLambda\": {",
+							"      \"Comment\": \"Load new partitions into Athena.\",",
+							"      \"Type\": \"Task\",",
+							{ "Fn::Join": ["", ["      \"Resource\": \"", { "Fn::GetAtt": ["AthenaLambda", "Arn"] }, "\","]] },
+							"      \"ResultPath\": \"$.parm\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"AthenaChoice\"",
+							"    },",
+							"    \"AthenaChoice\": {",
+							"      \"Comment\": \"Test Boolean property $.parm.athena.continue to decide whether there are still more partitions to load.\",",
+							"      \"Type\": \"Choice\",",
+							"      \"Choices\": [",
+							"        {",
+							"          \"Variable\": \"$.parm.athena.continue\",",
+							"          \"BooleanEquals\": true,",
+							"          \"Next\": \"AthenaContinue\"",
+							"        }",
+							"      ],",
+							"      \"Default\": \"Done\"",
+							"    },",
+							"    \"AthenaContinue\": {",
+							"      \"Comment\": \"Wait for $.parm.athena.wait_seconds before checking status.\",",
+							"      \"Type\": \"Wait\",",
+							"      \"SecondsPath\": \"$.parm.athena.wait_seconds\",",
+							"      \"OutputPath\": \"$\",",
+							"      \"Next\": \"AthenaLambda\"",
+							"    },",
+							"    \"Done\": {",
+							"      \"Type\": \"Pass\",",
+							"      \"End\": true",
+							"    }",
+							"  }",
+							"}"
+						]
+					]
+				},
+				"RoleArn": { "Fn::GetAtt": [ "StepFunctionServiceRole" , "Arn" ] }
+			}
+		},
+		"EventRule": {
+			"Type": "AWS::Events::Rule",
+			"Properties": {
+				"Description": "Trigger the MetaCrawler state machine.",
+				"ScheduleExpression": "rate(1 day)",
+				"State": "ENABLED",
+				"Targets": [
+					{
+						"Arn": {"Ref": "MetaCrawlerStateMachine"},
+						"Id": "MetaCrawlerStateMachine",
+						"RoleArn": { "Fn::GetAtt": [ "CloudWatchServiceRole" , "Arn" ] }
+					}
+				]
+			}
+		}
+	}
+}
